@@ -1,0 +1,84 @@
+package org.bha.rocksdb;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import picocli.CommandLine;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class Main implements Callable<Void> {
+
+  @CommandLine.Parameters(index = "0", description = "Number of Threads")
+  private int numThreads;
+
+  @CommandLine.Parameters(index = "1", description = "Number of keys per each" +
+      " thread")
+  private long numKeys;
+
+  @CommandLine.Parameters(index = "2",  description = "DB Location",
+      defaultValue = "/tmp/testrocksdb.db")
+  private String path;
+
+  public static void main(String[] args) throws Exception {
+    CommandLine.call(new Main(), args);
+  }
+
+  public Void call() throws Exception {
+    // Checking values
+    if (numThreads <= 0) {
+      numThreads = 1;
+    }
+
+    if (numKeys <=0) {
+      numKeys = 100000;
+    }
+
+    // Open DB
+    RocksDBMain.openDB(path);
+
+    // Start the threads.
+    final ExecutorService executor = Executors.newFixedThreadPool(
+        numThreads,
+        (new ThreadFactoryBuilder().setNameFormat(
+            "RocksDB-Thread-%d").build()));
+
+    final CompletionService<Object> ecs =
+        new ExecutorCompletionService<>(executor);
+
+
+    long startTime = System.currentTimeMillis();
+    for (long t = 0; t < numThreads; t++) {
+      ecs.submit(() -> {
+        long time = 0;
+        try {
+          time = RocksDBMain.doWork(numKeys);
+        } catch (Exception ex) {
+          System.out.println(ex);
+        }
+        return time;
+      });
+    }
+
+    long totalTime = 0L;
+    // And wait for all threads to complete.
+    for (long t = 0; t < numThreads; t++) {
+      totalTime += (long) ecs.take().get();
+    }
+    executor.shutdown();
+
+    System.out.println("Time taken in Main is " +
+        (System.currentTimeMillis() - startTime)/1000);
+
+    System.out.println("Total time taken by all threads is" + totalTime);
+
+    // Finally delete the db
+    RocksDBMain.deleteDB();
+
+    return null;
+
+  }
+
+}
