@@ -1,4 +1,4 @@
-This is repository for doing ozone and rocksdb performance.
+This is repository contains code for measuring ozone (OM) and rocksdb performance.
 
 Compile:
 mvn clean install
