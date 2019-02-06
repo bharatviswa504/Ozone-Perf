@@ -1,6 +1,7 @@
 package org.bha.rocksdb;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.bha.ozone.OzoneWrite;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
@@ -18,9 +19,18 @@ public class Main implements Callable<Void> {
       " thread")
   private long numKeys;
 
-  @CommandLine.Parameters(index = "2",  description = "DB Location",
+  @CommandLine.Parameters(index = "2", description = "Test Ozone perf/ Test " +
+      "rocksdb perf", defaultValue = "ozone")
+  private String type;
+
+  @CommandLine.Parameters(index = "3", description = "Sync flag",
+      defaultValue = "true")
+  private boolean sync;
+
+  @CommandLine.Parameters(index = "4",  description = "DB Location",
       defaultValue = "/tmp/testrocksdb.db")
   private String path;
+
 
   public static void main(String[] args) throws Exception {
     CommandLine.call(new Main(), args);
@@ -36,46 +46,89 @@ public class Main implements Callable<Void> {
       numKeys = 100000;
     }
 
-    // Open DB
-    RocksDBMain.openDB(path);
+    if (type.equals("ozone")) {
+      OzoneWrite.setOM(path);
+      OzoneWrite.setup();
 
-    // Start the threads.
-    final ExecutorService executor = Executors.newFixedThreadPool(
-        numThreads,
-        (new ThreadFactoryBuilder().setNameFormat(
-            "RocksDB-Thread-%d").build()));
+      // Start the threads.
+      final ExecutorService executor = Executors.newFixedThreadPool(
+          numThreads,
+          (new ThreadFactoryBuilder().setNameFormat(
+              "Ozone-Thread-%d").build()));
 
-    final CompletionService<Object> ecs =
-        new ExecutorCompletionService<>(executor);
+      final CompletionService<Object> ecs =
+          new ExecutorCompletionService<>(executor);
 
 
-    long startTime = System.currentTimeMillis();
-    for (long t = 0; t < numThreads; t++) {
-      ecs.submit(() -> {
-        long time = 0;
-        try {
-          time = RocksDBMain.doWork(numKeys);
-        } catch (Exception ex) {
-          System.out.println(ex);
-        }
-        return time;
-      });
+      long startTime = System.currentTimeMillis();
+      for (long t = 0; t < numThreads; t++) {
+        ecs.submit(() -> {
+          long time = 0;
+          try {
+            time = OzoneWrite.doWork(numKeys);
+          } catch (Exception ex) {
+            System.out.println(ex);
+          }
+          return time;
+        });
+      }
+
+      long totalTime = 0L;
+      // And wait for all threads to complete.
+      for (long t = 0; t < numThreads; t++) {
+        totalTime += (long) ecs.take().get();
+      }
+      executor.shutdown();
+      OzoneWrite.shutdown();
+
+
+      System.out.println("Time taken in Main is " +
+          (System.currentTimeMillis() - startTime) / 1000);
+      System.out.println("Total time taken by all threads is" + totalTime);
+
+
+    } else {
+      // Open DB
+      RocksDBMain.openDB(path, sync);
+
+      // Start the threads.
+      final ExecutorService executor = Executors.newFixedThreadPool(
+          numThreads,
+          (new ThreadFactoryBuilder().setNameFormat(
+              "RocksDB-Thread-%d").build()));
+
+      final CompletionService<Object> ecs =
+          new ExecutorCompletionService<>(executor);
+
+
+      long startTime = System.currentTimeMillis();
+      for (long t = 0; t < numThreads; t++) {
+        ecs.submit(() -> {
+          long time = 0;
+          try {
+            time = RocksDBMain.doWork(numKeys);
+          } catch (Exception ex) {
+            System.out.println(ex);
+          }
+          return time;
+        });
+      }
+
+      long totalTime = 0L;
+      // And wait for all threads to complete.
+      for (long t = 0; t < numThreads; t++) {
+        totalTime += (long) ecs.take().get();
+      }
+      executor.shutdown();
+
+      System.out.println("Time taken in Main is " +
+          (System.currentTimeMillis() - startTime) / 1000);
+
+      System.out.println("Total time taken by all threads is" + totalTime);
+
+      // Finally delete the db
+      RocksDBMain.deleteDB();
     }
-
-    long totalTime = 0L;
-    // And wait for all threads to complete.
-    for (long t = 0; t < numThreads; t++) {
-      totalTime += (long) ecs.take().get();
-    }
-    executor.shutdown();
-
-    System.out.println("Time taken in Main is " +
-        (System.currentTimeMillis() - startTime)/1000);
-
-    System.out.println("Total time taken by all threads is" + totalTime);
-
-    // Finally delete the db
-    RocksDBMain.deleteDB();
 
     return null;
 

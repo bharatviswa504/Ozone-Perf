@@ -18,10 +18,10 @@ public class RocksDBMain {
   public static String volumeName;
   public static String bucketName;
 
-  public static void openDB(String path) throws RocksDBException {
+  public static void openDB(String path, boolean sync) throws RocksDBException {
     RocksDBMain.path = path;
     rocksDBWrite = new RocksDBWrite();
-    rocksDBWrite.openDB(path);
+    rocksDBWrite.openDB(path, sync);
     volumeName = UUID.randomUUID().toString();
     bucketName = UUID.randomUUID().toString();
   }
@@ -49,7 +49,6 @@ public class RocksDBMain {
 
       byte[] key =
           rocksDBWrite.getKey(volumeName, bucketName, keyName).getBytes();
-
       byte[] val = omKeyInfo.getProtobuf().toByteArray();
 
       // Doing similar what we do in OM

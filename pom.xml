@@ -66,9 +66,23 @@
       <artifactId>picocli</artifactId>
       <version>3.9.3</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-ozone-integration-test</artifactId>
+      <type>test-jar</type>
+      <version>0.4.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <type>test-jar</type>
+      <version>3.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-ozone-integration-test</artifactId>
+      <version>0.4.0-SNAPSHOT</version>
+    </dependency>
   </dependencies>
-
-
-
 
 </project>

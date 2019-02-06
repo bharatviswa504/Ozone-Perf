@@ -24,8 +24,9 @@ public class RocksDBWrite {
 
   private ColumnFamilyHandle defaultHanlde;
   private ColumnFamilyHandle moveHandle;
+  public WriteOptions writeOptions;
 
-  public void openDB(String path) throws RocksDBException {
+  public void openDB(String path, boolean sync) throws RocksDBException {
 
     DBOptions dbOptions = getDBOptions();
 
@@ -46,21 +47,22 @@ public class RocksDBWrite {
     columnFamilyDescriptors.add(columnFamilyDescriptor1);
     columnFamilyDescriptors.add(columnFamilyDescriptor2);
 
-
     db = RocksDB.open(dbOptions, path, columnFamilyDescriptors, columnFamilyHandles);
 
     defaultHanlde = columnFamilyHandles.get(0);
     moveHandle = columnFamilyHandles.get(1);
 
+    System.out.print("sync set to " + sync);
+    writeOptions = new WriteOptions().setSync(sync);
+
   }
 
   public void put(byte[] key, byte[] value) throws RocksDBException  {
-    db.put(defaultHanlde, key, value);
+    db.put(defaultHanlde, writeOptions, key, value);
   }
 
 
   public void commit(byte[] key, byte[] value) throws RocksDBException {
-      WriteOptions writeOptions = new WriteOptions();
       WriteBatch writeBatch = new WriteBatch();
       writeBatch.put(moveHandle, key, value);
       writeBatch.delete(defaultHanlde, key);
