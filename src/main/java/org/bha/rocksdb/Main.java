@@ -20,14 +20,18 @@ public class Main implements Callable<Void> {
   private long numKeys;
 
   @CommandLine.Parameters(index = "2", description = "Test Ozone perf/ Test " +
-      "rocksdb perf", defaultValue = "ozone")
+      "rocksdb perf", defaultValue = "rocksdb")
   private String type;
 
   @CommandLine.Parameters(index = "3", description = "Sync flag",
-      defaultValue = "true")
+      defaultValue = "false")
   private boolean sync;
 
-  @CommandLine.Parameters(index = "4",  description = "DB Location",
+  @CommandLine.Parameters(index = "4", description = "Batch flag",
+      defaultValue = "false")
+  private boolean batch;
+
+  @CommandLine.Parameters(index = "5",  description = "DB Location",
       defaultValue = "/tmp/testrocksdb.db")
   private String path;
 
@@ -85,7 +89,7 @@ public class Main implements Callable<Void> {
       System.out.println("Time taken in Main is " +
           (System.currentTimeMillis() - startTime) / 1000);
       System.out.println("Total time taken by all threads is" + totalTime);
-
+      System.out.print("DB count is " + RocksDBMain.getCount());
 
     } else {
       // Open DB
@@ -106,13 +110,15 @@ public class Main implements Callable<Void> {
         ecs.submit(() -> {
           long time = 0;
           try {
-            time = RocksDBMain.doWork(numKeys);
+            time = RocksDBMain.doWork1(numKeys, batch);
           } catch (Exception ex) {
             System.out.println(ex);
           }
           return time;
         });
       }
+
+
 
       long totalTime = 0L;
       // And wait for all threads to complete.
@@ -126,8 +132,11 @@ public class Main implements Callable<Void> {
 
       System.out.println("Total time taken by all threads is" + totalTime);
 
+      //RocksDBMain.flush();
+      System.out.print("DB count is " + RocksDBMain.getCount());
+
       // Finally delete the db
-      RocksDBMain.deleteDB();
+     RocksDBMain.deleteDB();
     }
 
     return null;
